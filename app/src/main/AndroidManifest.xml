@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyApplication">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Widget 1: Calorie Summary Widget (2x2) -->
+        <receiver
+            android:name=".widgets.CalorieSummaryWidget"
+            android:exported="true"
+            android:label="Calorie Summary (2x2)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_calorie_summary_info" />
+        </receiver>
+
+        <!-- Widget 2: Macro Dashboard Widget (4x2) -->
+        <receiver
+            android:name=".widgets.MacroDashboardWidget"
+            android:exported="true"
+            android:label="Macro Dashboard (4x2)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_macro_dashboard_info" />
+        </receiver>
+
+        <!-- Widget 3: Hydration Tracker Widget (2x1) -->
+        <receiver
+            android:name=".widgets.HydrationTrackerWidget"
+            android:exported="true"
+            android:label="Hydration Counter (2x1)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.myapplication.ACTION_ADD_WATER" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_hydration_tracker_info" />
+        </receiver>
+
+        <!-- Widget 4: Quick Meal Logger Bar (4x1) -->
+        <receiver
+            android:name=".widgets.QuickMealBarWidget"
+            android:exported="true"
+            android:label="Quick Meal Logger (4x1)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_meal_bar_info" />
+        </receiver>
+
+        <!-- Widget 5: Water & Energy Combo Bar (3x1) -->
+        <receiver
+            android:name=".widgets.ComboBarWidget"
+            android:exported="true"
+            android:label="Water &amp; Calorie Combo (3x1)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_combo_bar_info" />
+        </receiver>
+    </application>
+
+</manifest>
