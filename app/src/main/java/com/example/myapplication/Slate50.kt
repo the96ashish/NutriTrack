@@ -65,6 +65,7 @@ import java.util.UUID
 import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 
 // ============================================================================
 // 1. COLOR PALETTE
@@ -272,7 +273,7 @@ object NutritionEngine {
 }
 
 // ============================================================================
-// 4. COMPLETE 50-ITEM FOOD DATABASE
+// 4. FOOD CATALOGUE (legacy values per serving; sourced additions below)
 // ============================================================================
 
 val DEFAULT_FOOD_DATABASE: List<FoodItem> = listOf(
@@ -504,11 +505,11 @@ val DEFAULT_FOOD_DATABASE: List<FoodItem> = listOf(
     FoodItem("dark_chocolate", "Dark Chocolate (70%)", "Sweets & Desserts", 120.0, 1.6, 9.0, 8.5, "g", "2 squares", 20.0),
 
     // --- BEVERAGES ---
-    FoodItem("masala_chai", "Masala Chai", "Beverages", 75.0, 2.2, 11.0, 2.5, "ml", "1 teacup", 150.0),
-    FoodItem("ginger_chai", "Ginger Tea / Adrak Chai", "Beverages", 75.0, 2.2, 11.0, 2.5, "ml", "1 teacup", 150.0),
-    FoodItem("elaichi_chai", "Cardamom Tea / Elaichi Chai", "Beverages", 75.0, 2.2, 11.0, 2.5, "ml", "1 teacup", 150.0),
+    FoodItem("masala_chai", "Masala Chai (Milk & Sugar)", "Beverages", 75.0, 2.2, 11.0, 2.5, "ml", "1 teacup", 150.0),
+    FoodItem("ginger_chai", "Ginger Tea / Adrak Chai (Milk & Sugar)", "Beverages", 75.0, 2.2, 11.0, 2.5, "ml", "1 teacup", 150.0),
+    FoodItem("elaichi_chai", "Cardamom Tea / Elaichi Chai (Milk & Sugar)", "Beverages", 75.0, 2.2, 11.0, 2.5, "ml", "1 teacup", 150.0),
     FoodItem("lemon_tea", "Lemon Tea", "Beverages", 35.0, 0.2, 8.5, 0.0, "ml", "1 cup", 150.0),
-    FoodItem("green_tea", "Green Tea / Black Tea", "Beverages", 2.0, 0.2, 0.3, 0.0, "ml", "1 cup", 150.0),
+    FoodItem("green_tea", "Green Tea (Unsweetened)", "Beverages", 2.0, 0.2, 0.3, 0.0, "ml", "1 cup", 150.0),
     FoodItem("filter_coffee", "Filter Coffee (with Milk)", "Beverages", 85.0, 2.5, 12.0, 3.0, "ml", "1 cup", 150.0),
     FoodItem("cold_coffee", "Cold Coffee with Ice Cream", "Beverages", 240.0, 5.5, 34.0, 9.0, "ml", "1 glass", 250.0),
     FoodItem("cappuccino", "Cappuccino / Latte", "Beverages", 120.0, 5.0, 11.0, 6.0, "ml", "1 cup", 200.0),
@@ -523,7 +524,7 @@ val DEFAULT_FOOD_DATABASE: List<FoodItem> = listOf(
     FoodItem("badam_milk", "Badam Milk", "Beverages", 190.0, 6.5, 22.0, 8.5, "ml", "1 glass", 200.0),
     FoodItem("cola_soda", "Cola / Soda", "Beverages", 130.0, 0.0, 33.0, 0.0, "ml", "1 can", 300.0),
     FoodItem("nimbu_pani", "Nimbu Pani / Lemonade", "Beverages", 70.0, 0.2, 18.0, 0.1, "ml", "1 glass", 250.0)
-)
+) + IndianFoodExpansion.foods
 val ALL_CATEGORIES = listOf(
     "All",
     "Grains & Breads",
@@ -549,9 +550,9 @@ class LocalStore(val context: Context) {
         for (i in 0..7) {
             val dKey = DateUtil.shiftDay(todayKey, -i)
             val log = loadDailyLog(dKey)
-            for (e in log.entries.reversed()) {
-                if (seenIds.add(e.foodId)) {
-                    val food = allFoods.find { it.id == e.foodId }
+            for ((_, foodId) in log.entries.reversed()) {
+                if (seenIds.add(foodId)) {
+                    val food = allFoods.find { it.id == foodId }
                     if (food != null) recentList.add(food)
                 }
                 if (recentList.size >= 8) break
@@ -795,7 +796,7 @@ fun SplashScreen(onFinished: () -> Unit) {
 
     LaunchedEffect(Unit) {
         startAnimation = true
-        delay(1200L)
+        delay(1200.milliseconds)
         onFinished()
     }
 
@@ -858,6 +859,7 @@ fun SplashScreen(onFinished: () -> Unit) {
 // 8. ROOT APPLICATION SCREEN
 // ============================================================================
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NutriTrackAppScreen() {
     val context = LocalContext.current
@@ -870,6 +872,7 @@ fun NutriTrackAppScreen() {
 
     var isProfileModalOpen by remember { mutableStateOf(profile == null) }
     var isAddFoodModalOpen by remember { mutableStateOf(false) }
+    var isDisclaimerOpen by remember { mutableStateOf(false) }
     var activeMealForModal by remember { mutableStateOf(MealType.BREAKFAST) }
     var editingEntry by remember { mutableStateOf<LoggedEntry?>(null) }
     var appTab by remember { mutableIntStateOf(0) }
@@ -916,17 +919,16 @@ fun NutriTrackAppScreen() {
                     .fillMaxWidth()
                     .background(Color.White)
                     .statusBarsPadding()
-                    .padding(top = 10.dp)
             ) {
                 // Brand & Profile Header
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -966,29 +968,21 @@ fun NutriTrackAppScreen() {
                             Text(
                                 text = "${activeProfile.name} • ${activeProfile.weightKg}kg • BMI ${bmiInfo.first} (${bmiInfo.second})",
                                 fontSize = 11.sp,
-                                color = Slate500
+                                color = Slate500,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
 
-                    OutlinedButton(
-                        onClick = { isProfileModalOpen = true },
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    TooltipBox(
+                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                        tooltip = { PlainTooltip { Text("Profile") } },
+                        state = rememberTooltipState()
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Profile",
-                            tint = Emerald600,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Profile",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Slate700
-                        )
+                        IconButton(onClick = { isProfileModalOpen = true }, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Default.Person, contentDescription = "Profile", tint = Emerald600)
+                        }
                     }
                 }
 
@@ -1082,6 +1076,13 @@ fun NutriTrackAppScreen() {
                         label = { Text("Analytics & Insights", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
                         modifier = Modifier.weight(1f)
                     )
+                }
+            }
+        },
+        bottomBar = {
+            Box(Modifier.fillMaxWidth().navigationBarsPadding(), contentAlignment = Alignment.Center) {
+                TextButton(onClick = { isDisclaimerOpen = true }) {
+                    Text("About nutrition & disclaimer", fontSize = 12.sp, color = Slate700)
                 }
             }
         },
@@ -1192,6 +1193,10 @@ fun NutriTrackAppScreen() {
                 )
             }
         }
+    }
+
+    if (isDisclaimerOpen) {
+        NutritionDisclaimerDialog(onDismiss = { isDisclaimerOpen = false })
     }
 
     if (isProfileModalOpen) {
@@ -1851,10 +1856,7 @@ fun AnalyticsSection(
                             Text("Choose unrefined grains like oats, millets, brown rice, and whole wheat roti over maida or sugary drinks to sustain steady insulin levels.", fontSize = 11.sp, color = Slate700)
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("💧 Hydration & Digestion", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Cyan700)
-                            Text("Drinking a glass of water 30 minutes before meals aids nutrient absorption, prevents overeating, and boosts metabolic efficiency.", fontSize = 11.sp, color = Slate700)
-                        }
+
                     }
                 }
             }
@@ -2073,21 +2075,21 @@ fun MealCardSection(
                                         MiniPill("F: ${NutritionEngine.round1(entry.fat)}g", Rose50, Rose700)
                                     }
                                 }
-                                Row {
-                                    IconButton(onClick = { onEditEntry(entry) }) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                                    IconButton(onClick = { onEditEntry(entry) }, modifier = Modifier.size(48.dp)) {
                                         Icon(
                                             imageVector = Icons.Default.Edit,
-                                            contentDescription = "Edit",
+                                            contentDescription = "Edit ${entry.foodName}",
                                             tint = Slate500,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(24.dp).offset(x = 4.dp)
                                         )
                                     }
-                                    IconButton(onClick = { onDeleteEntry(entry.id) }) {
+                                    IconButton(onClick = { onDeleteEntry(entry.id) }, modifier = Modifier.size(48.dp)) {
                                         Icon(
                                             imageVector = Icons.Default.Delete,
-                                            contentDescription = "Delete",
+                                            contentDescription = "Delete ${entry.foodName}",
                                             tint = Rose500,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(24.dp).offset(x = (-4).dp)
                                         )
                                     }
                                 }
@@ -2460,7 +2462,7 @@ fun AddOrEditFoodModal(
     val filteredFoods = remember(foods, searchQuery, selectedCategory) {
         foods.filter { item ->
             val matchesCat = selectedCategory == "All" || item.category == selectedCategory
-            val matchesSearch = searchQuery.isBlank() || item.name.contains(searchQuery, ignoreCase = true)
+            val matchesSearch = FoodSearch.matches(item, searchQuery)
             matchesCat && matchesSearch
         }
     }
@@ -2547,6 +2549,7 @@ fun AddOrEditFoodModal(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(food.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Slate900)
+                                Text(IndianFoodExpansion.note(food), fontSize = 12.sp, color = Slate700)
                                 val baseServCal = food.calories.roundToInt()
                                 val baseServPro = NutritionEngine.round1(food.protein)
                                 val baseServCarb = NutritionEngine.round1(food.carbs)
@@ -2792,6 +2795,7 @@ fun AddOrEditFoodModal(
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(food.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Slate900)
+                                            Text("Estimated nutrition • ${food.servingLabel}", fontSize = 12.sp, color = Slate700)
                                             Text(
                                                 "Per Serving (${food.servingGramWeight.roundToInt()}${food.unitType}): ${defEntry.calories.roundToInt()} kcal • Protein: ${NutritionEngine.round1(defEntry.protein)}g • Carbohydrates: ${NutritionEngine.round1(defEntry.carbs)}g • Fats: ${NutritionEngine.round1(defEntry.fat)}g",
                                                 fontSize = 13.sp,
